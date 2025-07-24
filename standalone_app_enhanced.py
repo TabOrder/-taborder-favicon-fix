@@ -2455,8 +2455,12 @@ def update_order_status(order_id):
 
 @app.route('/<path:path>')
 def catch_all(path):
-    """Catch-all route for React routing"""
+    """Catch-all route for React routing - excludes API routes"""
     try:
+        # Don't serve React for API routes
+        if path.startswith('api/'):
+            return jsonify({'error': 'API route not found'}), 404
+            
         from flask import send_from_directory
         return send_from_directory('frontend/build', 'index.html')
     except Exception as e:
