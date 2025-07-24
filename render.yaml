@@ -1,26 +1,17 @@
 services:
   - type: web
-    name: taborder-backend
+    name: taborder-frontend
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT standalone_app_enhanced:app
+    buildCommand: |
+      cd frontend
+      npm install
+      npm run build
+    startCommand: python standalone_app_enhanced.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
-      - key: FLASK_ENV
-        value: production
-      - key: DEBUG
-        value: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: taborder-database
-          property: connectionString
-      - key: SECRET_KEY
-        generateValue: true
-      - key: CORS_ORIGINS
-        value: "*"
-      - key: API_BASE_URL
-        value: https://taborder-backend.onrender.com
+      - key: NODE_VERSION
+        value: 20.11.0
 
 databases:
   - name: taborder-database
