@@ -175,6 +175,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.business_name}
                   onChange={(e) => handleInputChange('business_name', e.target.value)}
                   required
+                  inputProps={{
+                    autoComplete: "organization"
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><Business /></InputAdornment>,
                   }}
@@ -190,6 +193,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.business_type}
                   onChange={(e) => handleInputChange('business_type', e.target.value)}
                   placeholder="e.g., Wholesale, Distribution, Manufacturing"
+                  inputProps={{
+                    autoComplete: "organization-title"
+                  }}
                 />
               </Grid>
 
@@ -202,6 +208,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.tax_number}
                   onChange={(e) => handleInputChange('tax_number', e.target.value)}
                   placeholder="VAT/Tax registration number"
+                  inputProps={{
+                    autoComplete: "off"
+                  }}
                 />
               </Grid>
 
@@ -213,6 +222,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   label="Phone Number"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
+                  inputProps={{
+                    autoComplete: "tel"
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><Phone /></InputAdornment>,
                   }}
@@ -229,6 +241,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   multiline
                   rows={2}
+                  inputProps={{
+                    autoComplete: "street-address"
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><LocationOn /></InputAdornment>,
                   }}
@@ -252,6 +267,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.owner_name}
                   onChange={(e) => handleInputChange('owner_name', e.target.value)}
                   required
+                  inputProps={{
+                    autoComplete: "name"
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><Person /></InputAdornment>,
                   }}
@@ -268,6 +286,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   required
+                  inputProps={{
+                    autoComplete: "email"
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start"><Email /></InputAdornment>,
                   }}
@@ -291,6 +312,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   required
+                  inputProps={{
+                    autoComplete: "new-password"
+                  }}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -316,6 +340,9 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
                   value={formData.confirm_password}
                   onChange={(e) => handleInputChange('confirm_password', e.target.value)}
                   required
+                  inputProps={{
+                    autoComplete: "new-password"
+                  }}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">

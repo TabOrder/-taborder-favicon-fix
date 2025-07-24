@@ -113,12 +113,17 @@ const VendorLogin: React.FC<VendorLoginProps> = ({ onLoginSuccess, onShowRegistr
             <form onSubmit={handleSubmit}>
               <TextField
                 fullWidth
+                id="email"
+                name="email"
                 label="Email"
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 margin="normal"
                 required
+                inputProps={{
+                  autoComplete: "email"
+                }}
                 InputProps={{
                   startAdornment: <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />,
                 }}
@@ -126,12 +131,17 @@ const VendorLogin: React.FC<VendorLoginProps> = ({ onLoginSuccess, onShowRegistr
               
               <TextField
                 fullWidth
+                id="password"
+                name="password"
                 label="Password"
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange('password')}
                 margin="normal"
                 required
+                inputProps={{
+                  autoComplete: "current-password"
+                }}
                 InputProps={{
                   startAdornment: <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />,
                 }}
