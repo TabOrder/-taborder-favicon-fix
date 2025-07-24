@@ -804,9 +804,10 @@ def vendor_register():
         password = data.get('password', '')
         business_name = data.get('business_name', '').strip()
         phone = data.get('phone', '').strip()
-        name = data.get('name', '').strip()
+        owner_name = data.get('owner_name', '').strip()  # Frontend sends owner_name
+        name = owner_name  # Use owner_name as name for backend compatibility
         
-        if not email or not password or not business_name or not phone or not name:
+        if not email or not password or not business_name or not phone or not owner_name:
             return jsonify({
                 'success': False,
                 'message': 'All fields are required'
@@ -818,8 +819,12 @@ def vendor_register():
             'vendor_id': f"VENDOR_{int(time.time())}",
             'email': email,
             'name': name,
+            'owner_name': owner_name,
             'phone': phone,
             'business_name': business_name,
+            'address': data.get('address', ''),
+            'business_type': data.get('business_type', ''),
+            'tax_number': data.get('tax_number', ''),
             'location': 'Johannesburg, South Africa',
             'status': 'pending_approval'
         }
