@@ -169,6 +169,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="business_name"
+                  name="business_name"
                   label="Business Name *"
                   value={formData.business_name}
                   onChange={(e) => handleInputChange('business_name', e.target.value)}
@@ -182,6 +184,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="business_type"
+                  name="business_type"
                   label="Business Type"
                   value={formData.business_type}
                   onChange={(e) => handleInputChange('business_type', e.target.value)}
@@ -192,6 +196,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="tax_number"
+                  name="tax_number"
                   label="Tax Number"
                   value={formData.tax_number}
                   onChange={(e) => handleInputChange('tax_number', e.target.value)}
@@ -202,6 +208,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="phone"
+                  name="phone"
                   label="Phone Number"
                   value={formData.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
@@ -214,6 +222,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  id="address"
+                  name="address"
                   label="Business Address"
                   value={formData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
@@ -236,6 +246,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="owner_name"
+                  name="owner_name"
                   label="Owner Name *"
                   value={formData.owner_name}
                   onChange={(e) => handleInputChange('owner_name', e.target.value)}
@@ -249,6 +261,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="email"
+                  name="email"
                   label="Email Address *"
                   type="email"
                   value={formData.email}
@@ -270,6 +284,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="password"
+                  name="password"
                   label="Password *"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
@@ -293,6 +309,8 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
+                  id="confirm_password"
+                  name="confirm_password"
                   label="Confirm Password *"
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirm_password}
