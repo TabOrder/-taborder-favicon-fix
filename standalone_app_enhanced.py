@@ -18,6 +18,17 @@ from flask_cors import CORS, cross_origin
 import flask_cors
 print(f"[INFO] Flask-CORS version: {flask_cors.__version__}")
 
+# Database imports
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    from contextlib import contextmanager
+    PSYCOPG2_AVAILABLE = True
+    logger.info("✅ PostgreSQL support available")
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+    logger.warning("⚠️ PostgreSQL not available, using file-based storage")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,6 +46,65 @@ SESSIONS_FILE = f'{PERSISTENT_DIR}/taborder_sessions.pkl'
 USERS_FILE = f'{PERSISTENT_DIR}/taborder_users.pkl'
 ORDERS_FILE = f'{PERSISTENT_DIR}/taborder_orders.pkl'
 VENDORS_FILE = f'{PERSISTENT_DIR}/taborder_vendors.pkl'
+
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_ENABLED = PSYCOPG2_AVAILABLE and DATABASE_URL is not None
+
+if DATABASE_ENABLED:
+    logger.info("✅ Database mode enabled")
+else:
+    logger.info("📁 File-based storage mode enabled")
+
+# Database connection management
+@contextmanager
+def get_db_connection():
+    """🔗 Get database connection with automatic cleanup"""
+    if not DATABASE_ENABLED:
+        raise Exception("Database not enabled")
+    
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        yield conn
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+def init_database():
+    """🗄️ Initialize database tables if they don't exist"""
+    if not DATABASE_ENABLED:
+        return
+    
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # Create vendors table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS vendors (
+                        vendor_id VARCHAR(50) PRIMARY KEY,
+                        email VARCHAR(255) UNIQUE NOT NULL,
+                        password VARCHAR(255) NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        owner_name VARCHAR(255),
+                        phone VARCHAR(50),
+                        business_name VARCHAR(255),
+                        address TEXT,
+                        business_type VARCHAR(100),
+                        tax_number VARCHAR(100),
+                        location VARCHAR(255) DEFAULT 'Johannesburg, South Africa',
+                        status VARCHAR(50) DEFAULT 'pending_approval',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                conn.commit()
+                logger.info("✅ Database tables initialized")
+    except Exception as e:
+        logger.error(f"❌ Database initialization error: {e}")
 
 def load_sessions():
     try:
@@ -102,22 +172,124 @@ def save_orders(orders):
         logger.error(f"Error saving orders: {e}")
 
 def load_vendors():
-    """🏪 Load vendors from persistent storage"""
-    try:
-        if os.path.exists(VENDORS_FILE):
-            with open(VENDORS_FILE, 'rb') as f:
-                return pickle.load(f)
-    except Exception as e:
-        logger.error(f"Error loading vendors: {e}")
-    return {}
+    """🏪 Load vendors from database or file storage"""
+    if DATABASE_ENABLED:
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("SELECT * FROM vendors")
+                    vendors = {}
+                    for row in cur.fetchall():
+                        vendors[row['vendor_id']] = dict(row)
+                    return vendors
+        except Exception as e:
+            logger.error(f"Database error loading vendors: {e}")
+            return {}
+    else:
+        # Fallback to file-based storage
+        try:
+            if os.path.exists(VENDORS_FILE):
+                with open(VENDORS_FILE, 'rb') as f:
+                    return pickle.load(f)
+        except Exception as e:
+            logger.error(f"Error loading vendors from file: {e}")
+        return {}
 
 def save_vendors(vendors):
-    """🏪 Save vendors to persistent storage"""
-    try:
-        with open(VENDORS_FILE, 'wb') as f:
-            pickle.dump(vendors, f)
-    except Exception as e:
-        logger.error(f"Error saving vendors: {e}")
+    """🏪 Save vendors to database or file storage"""
+    if DATABASE_ENABLED:
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    for vendor_id, vendor_data in vendors.items():
+                        cur.execute("""
+                            INSERT INTO vendors (
+                                vendor_id, email, password, name, owner_name, phone, 
+                                business_name, address, business_type, tax_number, 
+                                location, status
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (vendor_id) DO UPDATE SET
+                                email = EXCLUDED.email,
+                                password = EXCLUDED.password,
+                                name = EXCLUDED.name,
+                                owner_name = EXCLUDED.owner_name,
+                                phone = EXCLUDED.phone,
+                                business_name = EXCLUDED.business_name,
+                                address = EXCLUDED.address,
+                                business_type = EXCLUDED.business_type,
+                                tax_number = EXCLUDED.tax_number,
+                                location = EXCLUDED.location,
+                                status = EXCLUDED.status,
+                                updated_at = CURRENT_TIMESTAMP
+                        """, (
+                            vendor_data.get('vendor_id'),
+                            vendor_data.get('email'),
+                            vendor_data.get('password'),
+                            vendor_data.get('name'),
+                            vendor_data.get('owner_name'),
+                            vendor_data.get('phone'),
+                            vendor_data.get('business_name'),
+                            vendor_data.get('address'),
+                            vendor_data.get('business_type'),
+                            vendor_data.get('tax_number'),
+                            vendor_data.get('location'),
+                            vendor_data.get('status')
+                        ))
+                    conn.commit()
+        except Exception as e:
+            logger.error(f"Database error saving vendors: {e}")
+    else:
+        # Fallback to file-based storage
+        try:
+            with open(VENDORS_FILE, 'wb') as f:
+                pickle.dump(vendors, f)
+        except Exception as e:
+            logger.error(f"Error saving vendors to file: {e}")
+
+def save_single_vendor(vendor_data):
+    """🏪 Save a single vendor with conflict resolution"""
+    if DATABASE_ENABLED:
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO vendors (
+                            vendor_id, email, password, name, owner_name, phone, 
+                            business_name, address, business_type, tax_number, 
+                            location, status
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (email) DO NOTHING
+                        RETURNING vendor_id
+                    """, (
+                        vendor_data.get('vendor_id'),
+                        vendor_data.get('email'),
+                        vendor_data.get('password'),
+                        vendor_data.get('name'),
+                        vendor_data.get('owner_name'),
+                        vendor_data.get('phone'),
+                        vendor_data.get('business_name'),
+                        vendor_data.get('address'),
+                        vendor_data.get('business_type'),
+                        vendor_data.get('tax_number'),
+                        vendor_data.get('location'),
+                        vendor_data.get('status')
+                    ))
+                    result = cur.fetchone()
+                    conn.commit()
+                    return result is not None  # True if inserted, False if conflict
+        except Exception as e:
+            logger.error(f"Database error saving vendor: {e}")
+            return False
+    else:
+        # Fallback to file-based storage
+        try:
+            vendors = load_vendors()
+            vendors[vendor_data['vendor_id']] = vendor_data
+            save_vendors(vendors)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving vendor to file: {e}")
+            return False
 
 def is_user_registered(phone_number):
     """👤 Check if user exists - PostgreSQL or file fallback"""
@@ -663,6 +835,9 @@ except Exception as e:
 app = Flask(__name__, static_folder='frontend/build', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'taborder-secret-2024')
 
+# Initialize database tables if database is enabled
+init_database()
+
 # Configure CORS - Simple global configuration for Flask-CORS 6.0.1
 CORS(app, origins="*", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"])
@@ -858,10 +1033,12 @@ def vendor_register():
             'status': 'pending_approval'
         }
         
-        # Save vendor to persistent storage
-        vendors = load_vendors()
-        vendors[vendor_id] = vendor_data
-        save_vendors(vendors)
+        # Save vendor to database or file storage
+        if not save_single_vendor(vendor_data):
+            return jsonify({
+                'success': False,
+                'message': 'Vendor with this email already exists'
+            }), 409
         
         # Generate a simple access token
         access_token = f"vendor_token_{vendor_id}_{int(time.time())}"
