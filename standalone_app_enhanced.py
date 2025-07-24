@@ -929,6 +929,20 @@ def simple_test():
         'timestamp': datetime.now().isoformat()
     })
 
+@app.route('/api/debug-test')
+def debug_test():
+    """Debug test endpoint to check if Flask is running"""
+    logger.info("🔍 Debug test endpoint called")
+    return jsonify({
+        'success': True,
+        'message': 'Flask app is running!',
+        'timestamp': datetime.now().isoformat(),
+        'flask_version': '2.0.1',
+        'python_version': '3.9',
+        'database_enabled': DATABASE_ENABLED,
+        'psycopg2_available': PSYCOPG2_AVAILABLE
+    })
+
 @app.route('/api/combos')
 def get_combos():
     """Get all available combo specials - NOW FULLY DYNAMIC"""
@@ -1077,6 +1091,7 @@ def vendor_login():
 @app.route('/api/vendor/register', methods=['POST'])
 def vendor_register():
     """Vendor registration endpoint"""
+    logger.info("🔐 Vendor registration endpoint called")
     try:
         logger.info("🔐 Vendor registration request received")
         
@@ -2477,4 +2492,6 @@ def catch_all(path):
         return jsonify({'error': 'Route not found'}), 404
 
 if __name__ == '__main__':
+    print("🚀 Starting TabOrder Flask app...")
+    logger.info("🚀 Starting TabOrder Flask app...")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)), debug=True)
