@@ -20,9 +20,10 @@ import {
 
 interface VendorLoginProps {
   onLoginSuccess: (vendorData: any) => void;
+  onShowRegistration?: () => void;
 }
 
-const VendorLogin: React.FC<VendorLoginProps> = ({ onLoginSuccess }) => {
+const VendorLogin: React.FC<VendorLoginProps> = ({ onLoginSuccess, onShowRegistration }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -147,6 +148,19 @@ const VendorLogin: React.FC<VendorLoginProps> = ({ onLoginSuccess }) => {
                 {loading ? <CircularProgress size={24} /> : 'Login'}
               </Button>
             </form>
+
+            {onShowRegistration && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Button
+                  variant="text"
+                  color="primary"
+                  onClick={onShowRegistration}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Don't have an account? Register here
+                </Button>
+              </Box>
+            )}
 
             <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Typography variant="body2" color="textSecondary">

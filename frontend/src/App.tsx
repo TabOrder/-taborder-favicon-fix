@@ -91,6 +91,7 @@ const App: React.FC = () => {
         ) : (
           <VendorLogin
             onLoginSuccess={handleLoginSuccess}
+            onShowRegistration={handleShowRegistration}
           />
         )}
       </Box>
