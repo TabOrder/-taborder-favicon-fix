@@ -641,7 +641,7 @@ except Exception as e:
 
 # Logging already configured above
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='frontend/build', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'taborder-secret-2024')
 
 # Configure CORS - Simple global configuration for Flask-CORS 6.0.1
@@ -650,19 +650,27 @@ CORS(app, origins="*", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 
 @app.route('/')
 def root():
-    return jsonify({
-        'message': '🦁 TabOrder ULTIMATE USSD API',
-        'version': '4.0.0-ULTIMATE',
-        'status': 'healthy',
-        'features': {
-            'auto_registration': 'CTT + Haversine',
-            'fuzzy_search': 'Keyword-based smart search',
-            'trust_based': 'Minimal friction for native users',
-            'sms_invoices': 'Time-sensitive USSD optimized',
-            'loyalty_points': 'Gamified engagement',
-            'multi_currency': '7 African countries'
-        }
-    })
+    """Serve React app or API info"""
+    try:
+        from flask import send_from_directory
+        # Try to serve the React app
+        return send_from_directory('frontend/build', 'index.html')
+    except Exception as e:
+        logger.error(f"Error serving React app: {e}")
+        # Fallback to API info
+        return jsonify({
+            'message': '🦁 TabOrder ULTIMATE USSD API',
+            'version': '4.0.0-ULTIMATE',
+            'status': 'healthy',
+            'features': {
+                'auto_registration': 'CTT + Haversine',
+                'fuzzy_search': 'Keyword-based smart search',
+                'trust_based': 'Minimal friction for native users',
+                'sms_invoices': 'Time-sensitive USSD optimized',
+                'loyalty_points': 'Gamified engagement',
+                'multi_currency': '7 African countries'
+            }
+        })
 
 
 
@@ -2134,6 +2142,16 @@ def update_order_status(order_id):
             'success': False,
             'message': 'Failed to update order status'
         }), 500
+
+@app.route('/<path:path>')
+def catch_all(path):
+    """Catch-all route for React routing"""
+    try:
+        from flask import send_from_directory
+        return send_from_directory('frontend/build', 'index.html')
+    except Exception as e:
+        logger.error(f"Error serving React route {path}: {e}")
+        return jsonify({'error': 'Route not found'}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)), debug=True)
