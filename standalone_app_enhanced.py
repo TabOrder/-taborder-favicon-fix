@@ -248,7 +248,10 @@ def save_vendors(vendors):
 
 def save_single_vendor(vendor_data):
     """🏪 Save a single vendor with conflict resolution"""
+    logger.info(f"💾 save_single_vendor called for email: {vendor_data.get('email')}")
+    
     if DATABASE_ENABLED:
+        logger.info("🗄️ Using database storage")
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
@@ -276,19 +279,35 @@ def save_single_vendor(vendor_data):
                     ))
                     result = cur.fetchone()
                     conn.commit()
-                    return result is not None  # True if inserted, False if conflict
+                    success = result is not None
+                    logger.info(f"🗄️ Database save result: {success}")
+                    return success  # True if inserted, False if conflict
         except Exception as e:
-            logger.error(f"Database error saving vendor: {e}")
+            logger.error(f"❌ Database error saving vendor: {e}")
+            import traceback
+            logger.error(f"❌ Database error traceback: {traceback.format_exc()}")
             return False
     else:
         # Fallback to file-based storage
+        logger.info("📁 Using file-based storage")
         try:
             vendors = load_vendors()
+            logger.info(f"📁 Loaded {len(vendors)} existing vendors")
+            
+            # Check if email already exists
+            for existing_vendor in vendors.values():
+                if existing_vendor.get('email') == vendor_data.get('email'):
+                    logger.warning(f"⚠️ Email {vendor_data.get('email')} already exists")
+                    return False
+            
             vendors[vendor_data['vendor_id']] = vendor_data
             save_vendors(vendors)
+            logger.info(f"✅ File-based save successful for {vendor_data.get('email')}")
             return True
         except Exception as e:
-            logger.error(f"Error saving vendor to file: {e}")
+            logger.error(f"❌ Error saving vendor to file: {e}")
+            import traceback
+            logger.error(f"❌ File save error traceback: {traceback.format_exc()}")
             return False
 
 def is_user_registered(phone_number):
@@ -930,15 +949,63 @@ def vendor_api_test():
     """Vendor API test endpoint"""
     return jsonify({
         'success': True,
-        'message': 'Vendor API endpoint is working!',
-        'endpoints': {
-            'health': '/health',
-            'api_test': '/api/test',
-            'vendor_test': '/api/vendor/test',
-            'vendor_login': '/api/vendor/login',
-            'vendor_register': '/api/vendor/register'
-        }
+        'message': 'Vendor API is working!',
+        'database_enabled': DATABASE_ENABLED,
+        'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/vendor/debug', methods=['POST'])
+def vendor_debug():
+    """Debug endpoint to test vendor registration flow"""
+    try:
+        logger.info("🔍 Vendor debug endpoint called")
+        
+        # Test request parsing
+        if request.is_json:
+            data = request.get_json()
+            logger.info(f"📝 Debug data received: {data}")
+        else:
+            logger.error("❌ Debug request is not JSON")
+            return jsonify({
+                'success': False,
+                'message': 'Request must be JSON'
+            }), 400
+        
+        # Test vendor data creation
+        vendor_data = {
+            'vendor_id': f"DEBUG_VENDOR_{int(time.time())}",
+            'email': 'debug@test.com',
+            'password': 'debugpass',
+            'name': 'Debug Vendor',
+            'owner_name': 'Debug Owner',
+            'phone': '+27123456789',
+            'business_name': 'Debug Business',
+            'address': 'Debug Address',
+            'business_type': 'Debug Type',
+            'tax_number': 'DEBUG123',
+            'location': 'Johannesburg, South Africa',
+            'status': 'pending_approval'
+        }
+        
+        # Test save function
+        save_result = save_single_vendor(vendor_data)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Debug test completed',
+            'database_enabled': DATABASE_ENABLED,
+            'save_result': save_result,
+            'vendor_data': vendor_data,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Debug endpoint error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Debug error: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/api/vendor/login', methods=['POST'])
 def vendor_login():
@@ -1002,7 +1069,19 @@ def vendor_login():
 def vendor_register():
     """Vendor registration endpoint"""
     try:
+        logger.info("🔐 Vendor registration request received")
+        
+        # Check if request has JSON data
+        if not request.is_json:
+            logger.error("❌ Request is not JSON")
+            return jsonify({
+                'success': False,
+                'message': 'Request must be JSON'
+            }), 400
+        
         data = request.get_json()
+        logger.info(f"📝 Registration data received: {list(data.keys()) if data else 'None'}")
+        
         email = data.get('email', '').strip()
         password = data.get('password', '')
         business_name = data.get('business_name', '').strip()
@@ -1010,7 +1089,10 @@ def vendor_register():
         owner_name = data.get('owner_name', '').strip()  # Frontend sends owner_name
         name = owner_name  # Use owner_name as name for backend compatibility
         
+        logger.info(f"📧 Email: {email}, 📞 Phone: {phone}, 🏢 Business: {business_name}")
+        
         if not email or not password or not business_name or not phone or not owner_name:
+            logger.error(f"❌ Missing required fields: email={bool(email)}, password={bool(password)}, business_name={bool(business_name)}, phone={bool(phone)}, owner_name={bool(owner_name)}")
             return jsonify({
                 'success': False,
                 'message': 'All fields are required'
@@ -1033,8 +1115,15 @@ def vendor_register():
             'status': 'pending_approval'
         }
         
+        logger.info(f"💾 Saving vendor with ID: {vendor_id}")
+        logger.info(f"🗄️ Database enabled: {DATABASE_ENABLED}")
+        
         # Save vendor to database or file storage
-        if not save_single_vendor(vendor_data):
+        save_result = save_single_vendor(vendor_data)
+        logger.info(f"💾 Save result: {save_result}")
+        
+        if not save_result:
+            logger.warning(f"⚠️ Vendor with email {email} already exists or save failed")
             return jsonify({
                 'success': False,
                 'message': 'Vendor with this email already exists'
@@ -1042,6 +1131,8 @@ def vendor_register():
         
         # Generate a simple access token
         access_token = f"vendor_token_{vendor_id}_{int(time.time())}"
+        
+        logger.info(f"✅ Vendor registration successful for {email}")
         
         return jsonify({
             'success': True,
@@ -1051,7 +1142,10 @@ def vendor_register():
         }), 201
         
     except Exception as e:
-        logger.error(f"Vendor registration error: {str(e)}")
+        logger.error(f"❌ Vendor registration error: {str(e)}")
+        logger.error(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,
             'message': 'Registration failed. Please try again.'
