@@ -2,7 +2,15 @@ services:
   - type: web
     name: taborder-frontend
     env: python
-    buildCommand: ./build-fix-permissions.sh
+    buildCommand: |
+      cd frontend
+      npm install
+      echo "unsafe-perm=true" > .npmrc
+      echo "legacy-peer-deps=true" >> .npmrc
+      chmod -R 755 node_modules/.bin/
+      chmod +x node_modules/.bin/react-scripts
+      npx --no-install react-scripts build
+      ls -la build/
     startCommand: python standalone_app_enhanced.py
     envVars:
       - key: PYTHON_VERSION
