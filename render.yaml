@@ -2,7 +2,7 @@ services:
   - type: web
     name: taborder-frontend
     env: python
-    buildCommand: ./build-inline.sh
+    buildCommand: ./build-fix-permissions.sh
     startCommand: python standalone_app_enhanced.py
     envVars:
       - key: PYTHON_VERSION
