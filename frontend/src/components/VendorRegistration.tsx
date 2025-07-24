@@ -1,31 +1,25 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Typography,
   Container,
   Paper,
+  Typography,
   TextField,
   Button,
   Alert,
-  CircularProgress,
-  Card,
-  CardContent,
-  Avatar,
   Grid,
-  Stepper,
-  Step,
-  StepLabel,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
+  InputAdornment,
+  IconButton,
+  Link,
 } from '@mui/material';
 import {
-  Store as StoreIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  LocationOn as LocationIcon,
+  Visibility,
+  VisibilityOff,
+  Business,
+  Email,
+  Phone,
+  LocationOn,
+  Person,
 } from '@mui/icons-material';
 
 interface VendorRegistrationProps {
@@ -33,134 +27,75 @@ interface VendorRegistrationProps {
   onBackToLogin: () => void;
 }
 
-const steps = ['Business Information', 'Contact Details', 'Location & Verification'];
+interface RegistrationData {
+  business_name: string;
+  owner_name: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirm_password: string;
+  address: string;
+  business_type: string;
+  tax_number: string;
+}
 
 const VendorRegistration: React.FC<VendorRegistrationProps> = ({
   onRegistrationSuccess,
   onBackToLogin,
 }) => {
-  const [activeStep, setActiveStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
-    // Business Information
+  const [formData, setFormData] = useState<RegistrationData>({
     business_name: '',
-    business_type: '',
-    tax_number: '',
     owner_name: '',
-    
-    // Contact Details
     email: '',
     phone: '',
     password: '',
     confirm_password: '',
-    
-    // Location & Verification
     address: '',
-    city: '',
-    suburb: '',
-    latitude: '',
-    longitude: '',
+    business_type: '',
+    tax_number: '',
   });
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
-  const handleInputChange = (field: string) => (
-    event: React.ChangeEvent<HTMLInputElement | { value: unknown }>
-  ) => {
-    setFormData({
-      ...formData,
-      [field]: event.target.value,
-    });
-    
-    // Clear error for this field
-    if (errors[field]) {
-      setErrors({
-        ...errors,
-        [field]: '',
-      });
-    }
-    
-    setError(null);
+  const handleInputChange = (field: keyof RegistrationData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSelectChange = (field: string) => (
-    event: any
-  ) => {
-    setFormData({
-      ...formData,
-      [field]: event.target.value,
-    });
-    
-    // Clear error for this field
-    if (errors[field]) {
-      setErrors({
-        ...errors,
-        [field]: '',
-      });
-    }
-    
-    setError(null);
-  };
-
-  const validateStep = (step: number): boolean => {
-    const newErrors: { [key: string]: string } = {};
-
-    switch (step) {
-      case 0: // Business Information
-        if (!formData.business_name) newErrors.business_name = 'Business name is required';
-        if (!formData.business_type) newErrors.business_type = 'Business type is required';
-        if (!formData.owner_name) newErrors.owner_name = 'Owner name is required';
-        break;
-      
-      case 1: // Contact Details
-        if (!formData.email) newErrors.email = 'Email is required';
-        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
-        if (!formData.phone) newErrors.phone = 'Phone number is required';
-        if (!formData.password) newErrors.password = 'Password is required';
-        else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-        if (formData.password !== formData.confirm_password) {
-          newErrors.confirm_password = 'Passwords do not match';
-        }
-        break;
-      
-      case 2: // Location & Verification
-        if (!formData.address) newErrors.address = 'Address is required';
-        if (!formData.city) newErrors.city = 'City is required';
-        break;
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleNext = () => {
-    if (validateStep(activeStep)) {
-      setActiveStep((prevStep) => prevStep + 1);
-    }
-  };
-
-  const handleBack = () => {
-    setActiveStep((prevStep) => prevStep - 1);
-  };
-
-  const handleSubmit = async () => {
-    if (!validateStep(activeStep)) return;
-
-    setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     setSuccess(null);
 
+    // Validation
+    if (formData.password !== formData.confirm_password) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    if (!formData.email || !formData.business_name || !formData.owner_name) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const response = await fetch('/api/vendors', {
+      const response = await fetch('/api/vendor/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.business_name,
+          business_name: formData.business_name,
           owner_name: formData.owner_name,
           email: formData.email,
           phone: formData.phone,
@@ -168,294 +103,251 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
           address: formData.address,
           business_type: formData.business_type,
           tax_number: formData.tax_number,
-          city: formData.city,
-          suburb: formData.suburb,
-          latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-          longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        setSuccess('Registration successful! You can now login.');
+      if (response.ok && data.success) {
+        setSuccess('Registration successful! You can now sign in.');
         setTimeout(() => {
           onRegistrationSuccess(data);
         }, 2000);
       } else {
-        setError(data.message || 'Registration failed');
+        setError(data.message || 'Registration failed. Please try again.');
       }
-    } catch (err) {
-      setError('Network error. Please try again.');
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderStepContent = (step: number) => {
-    switch (step) {
-      case 0:
-        return (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Business Name"
-                value={formData.business_name}
-                onChange={handleInputChange('business_name')}
-                error={!!errors.business_name}
-                helperText={errors.business_name}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth error={!!errors.business_type}>
-                <InputLabel>Business Type</InputLabel>
-                <Select
-                  value={formData.business_type}
-                  onChange={handleSelectChange('business_type')}
-                  label="Business Type"
-                >
-                  <MenuItem value="wholesale">Wholesale</MenuItem>
-                  <MenuItem value="retail">Retail</MenuItem>
-                  <MenuItem value="manufacturing">Manufacturing</MenuItem>
-                  <MenuItem value="distribution">Distribution</MenuItem>
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
-                {errors.business_type && (
-                  <FormHelperText>{errors.business_type}</FormHelperText>
-                )}
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Owner Name"
-                value={formData.owner_name}
-                onChange={handleInputChange('owner_name')}
-                error={!!errors.owner_name}
-                helperText={errors.owner_name}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Tax Number (Optional)"
-                value={formData.tax_number}
-                onChange={handleInputChange('tax_number')}
-              />
-            </Grid>
-          </Grid>
-        );
-
-      case 1:
-        return (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange('email')}
-                error={!!errors.email}
-                helperText={errors.email}
-                required
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={formData.phone}
-                onChange={handleInputChange('phone')}
-                error={!!errors.phone}
-                helperText={errors.phone}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange('password')}
-                error={!!errors.password}
-                helperText={errors.password}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Confirm Password"
-                type="password"
-                value={formData.confirm_password}
-                onChange={handleInputChange('confirm_password')}
-                error={!!errors.confirm_password}
-                helperText={errors.confirm_password}
-                required
-              />
-            </Grid>
-          </Grid>
-        );
-
-      case 2:
-        return (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Address"
-                value={formData.address}
-                onChange={handleInputChange('address')}
-                error={!!errors.address}
-                helperText={errors.address}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="City"
-                value={formData.city}
-                onChange={handleInputChange('city')}
-                error={!!errors.city}
-                helperText={errors.city}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Suburb"
-                value={formData.suburb}
-                onChange={handleInputChange('suburb')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Latitude (Optional)"
-                type="number"
-                value={formData.latitude}
-                onChange={handleInputChange('latitude')}
-                inputProps={{ step: 'any' }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Longitude (Optional)"
-                type="number"
-                value={formData.longitude}
-                onChange={handleInputChange('longitude')}
-                inputProps={{ step: 'any' }}
-              />
-            </Grid>
-          </Grid>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   return (
-    <Container maxWidth="md">
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          py: 4,
-        }}
-      >
-        <Card sx={{ width: '100%', maxWidth: 600 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}>
-                <BusinessIcon sx={{ fontSize: 40 }} />
-              </Avatar>
-              <Typography variant="h4" component="h1" gutterBottom>
-                Vendor Registration
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Join TabOrder as a wholesale vendor
-              </Typography>
-            </Box>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      py: 4
+    }}>
+      <Container maxWidth="md">
+        <Paper elevation={8} sx={{ p: 4, borderRadius: 3 }}>
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Business sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h4" component="h1" gutterBottom>
+              Vendor Registration
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Join our platform as a wholesale vendor and start managing your combos
+            </Typography>
+          </Box>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess(null)}>
+              {success}
+            </Alert>
+          )}
 
-            {success && (
-              <Alert severity="success" sx={{ mb: 3 }}>
-                {success}
-              </Alert>
-            )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
-            <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-              {steps.map((label) => (
-                <Step key={label}>
-                  <StepLabel>{label}</StepLabel>
-                </Step>
-              ))}
-            </Stepper>
+          <form onSubmit={handleSubmit}>
+            <Grid container spacing={3}>
+              {/* Business Information */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Business color="primary" />
+                  Business Information
+                </Typography>
+              </Grid>
 
-            <Box sx={{ mb: 4 }}>
-              {renderStepContent(activeStep)}
-            </Box>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Business Name *"
+                  value={formData.business_name}
+                  onChange={(e) => handleInputChange('business_name', e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><Business /></InputAdornment>,
+                  }}
+                />
+              </Grid>
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Button
-                disabled={activeStep === 0}
-                onClick={handleBack}
-              >
-                Back
-              </Button>
-              
-              <Box>
-                {activeStep === steps.length - 1 ? (
-                  <Button
-                    variant="contained"
-                    onClick={handleSubmit}
-                    disabled={loading}
-                  >
-                    {loading ? <CircularProgress size={24} /> : 'Complete Registration'}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="contained"
-                    onClick={handleNext}
-                  >
-                    Next
-                  </Button>
-                )}
-              </Box>
-            </Box>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Business Type"
+                  value={formData.business_type}
+                  onChange={(e) => handleInputChange('business_type', e.target.value)}
+                  placeholder="e.g., Wholesale, Distribution, Manufacturing"
+                />
+              </Grid>
 
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
-              <Typography variant="body2" color="textSecondary">
-                Already have an account?{' '}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Tax Number"
+                  value={formData.tax_number}
+                  onChange={(e) => handleInputChange('tax_number', e.target.value)}
+                  placeholder="VAT/Tax registration number"
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Phone Number"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><Phone /></InputAdornment>,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Business Address"
+                  value={formData.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  multiline
+                  rows={2}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><LocationOn /></InputAdornment>,
+                  }}
+                />
+              </Grid>
+
+              {/* Owner Information */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                  <Person color="primary" />
+                  Owner Information
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Owner Name *"
+                  value={formData.owner_name}
+                  onChange={(e) => handleInputChange('owner_name', e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><Person /></InputAdornment>,
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email Address *"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><Email /></InputAdornment>,
+                  }}
+                />
+              </Grid>
+
+              {/* Password */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                  Security
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Password *"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  required
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Confirm Password *"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={formData.confirm_password}
+                  onChange={(e) => handleInputChange('confirm_password', e.target.value)}
+                  required
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          edge="end"
+                        >
+                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+
+              {/* Submit Button */}
+              <Grid item xs={12}>
                 <Button
-                  variant="text"
-                  onClick={onBackToLogin}
-                  sx={{ textTransform: 'none' }}
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={loading}
+                  sx={{ mt: 2, py: 1.5 }}
                 >
-                  Login here
+                  {loading ? 'Creating Account...' : 'Register as Vendor'}
                 </Button>
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-    </Container>
+              </Grid>
+
+              {/* Login Link */}
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Already have an account?{' '}
+                    <Link
+                      component="button"
+                      variant="body2"
+                      onClick={onBackToLogin}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      Sign in here
+                    </Link>
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </form>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 
