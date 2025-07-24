@@ -668,11 +668,17 @@ def root():
 def favicon():
     """🎨 Serve favicon.ico to fix 404 error"""
     try:
-        from flask import send_file
-        return send_file('favicon.ico', mimetype='image/vnd.microsoft.icon')
+        from flask import send_from_directory
+        # Try to serve from React build first
+        return send_from_directory('frontend/build', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
     except Exception as e:
-        logger.error(f"Error serving favicon: {e}")
-        return '', 404
+        try:
+            # Fallback to root directory
+            from flask import send_file
+            return send_file('favicon.ico', mimetype='image/vnd.microsoft.icon')
+        except Exception as e2:
+            logger.error(f"Error serving favicon: {e2}")
+            return '', 404
 
 @app.route('/health')
 def health():
