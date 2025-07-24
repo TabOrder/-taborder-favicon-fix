@@ -89,6 +89,18 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
     setLoading(true);
 
     try {
+      console.log('🚀 Sending registration request...');
+      console.log('📝 Registration data:', {
+        business_name: formData.business_name,
+        owner_name: formData.owner_name,
+        email: formData.email,
+        phone: formData.phone,
+        password: '[HIDDEN]',
+        address: formData.address,
+        business_type: formData.business_type,
+        tax_number: formData.tax_number,
+      });
+
       const response = await fetch('/api/vendor/register', {
         method: 'POST',
         headers: {
@@ -106,7 +118,23 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
         }),
       });
 
-      const data = await response.json();
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Check if response has content
+      const responseText = await response.text();
+      console.log('📡 Response text:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('📡 Parsed JSON data:', data);
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        console.error('❌ Response text that failed to parse:', responseText);
+        setError('Server returned invalid response. Please try again.');
+        return;
+      }
 
       if (response.ok && data.success) {
         setSuccess('Registration successful! You can now sign in.');
@@ -117,7 +145,7 @@ const VendorRegistration: React.FC<VendorRegistrationProps> = ({
         setError(data.message || 'Registration failed. Please try again.');
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
       setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
