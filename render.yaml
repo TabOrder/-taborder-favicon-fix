@@ -3,9 +3,7 @@ services:
     name: taborder-frontend
     env: python
     buildCommand: |
-      cd frontend
-      npm install
-      npm run build
+      cd frontend && npm install && echo "unsafe-perm=true" > .npmrc && npx react-scripts build && ls -la build/
     startCommand: python standalone_app_enhanced.py
     envVars:
       - key: PYTHON_VERSION
