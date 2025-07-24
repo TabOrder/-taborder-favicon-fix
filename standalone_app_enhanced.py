@@ -24,14 +24,18 @@ try:
     from psycopg2.extras import RealDictCursor
     from contextlib import contextmanager
     PSYCOPG2_AVAILABLE = True
-    logger.info("✅ PostgreSQL support available")
 except ImportError:
     PSYCOPG2_AVAILABLE = False
-    logger.warning("⚠️ PostgreSQL not available, using file-based storage")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Log database availability after logger is configured
+if PSYCOPG2_AVAILABLE:
+    logger.info("✅ PostgreSQL support available")
+else:
+    logger.warning("⚠️ PostgreSQL not available, using file-based storage")
 
 # Global sessions storage
 sessions = {}
@@ -854,12 +858,17 @@ except Exception as e:
 app = Flask(__name__, static_folder='frontend/build', static_url_path='')
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'taborder-secret-2024')
 
+logger.info("🚀 Flask app created successfully")
+
 # Initialize database tables if database is enabled
 init_database()
 
 # Configure CORS - Simple global configuration for Flask-CORS 6.0.1
 CORS(app, origins="*", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"])
+
+logger.info("✅ CORS configured successfully")
+logger.info("✅ Flask app initialization complete")
 
 @app.route('/')
 def root():
