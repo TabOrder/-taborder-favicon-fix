@@ -34,6 +34,7 @@ PERSISTENT_DIR = os.environ.get('PERSISTENT_DIR', '/tmp')
 SESSIONS_FILE = f'{PERSISTENT_DIR}/taborder_sessions.pkl'
 USERS_FILE = f'{PERSISTENT_DIR}/taborder_users.pkl'
 ORDERS_FILE = f'{PERSISTENT_DIR}/taborder_orders.pkl'
+VENDORS_FILE = f'{PERSISTENT_DIR}/taborder_vendors.pkl'
 
 def load_sessions():
     try:
@@ -99,6 +100,24 @@ def save_orders(orders):
             pickle.dump(orders, f)
     except Exception as e:
         logger.error(f"Error saving orders: {e}")
+
+def load_vendors():
+    """🏪 Load vendors from persistent storage"""
+    try:
+        if os.path.exists(VENDORS_FILE):
+            with open(VENDORS_FILE, 'rb') as f:
+                return pickle.load(f)
+    except Exception as e:
+        logger.error(f"Error loading vendors: {e}")
+    return {}
+
+def save_vendors(vendors):
+    """🏪 Save vendors to persistent storage"""
+    try:
+        with open(VENDORS_FILE, 'wb') as f:
+            pickle.dump(vendors, f)
+    except Exception as e:
+        logger.error(f"Error saving vendors: {e}")
 
 def is_user_registered(phone_number):
     """👤 Check if user exists - PostgreSQL or file fallback"""
@@ -760,17 +779,26 @@ def vendor_login():
                 'message': 'Email and password are required'
             }), 400
         
-        # For demo purposes, create a simple vendor authentication
+        # Check against registered vendors (stored in memory for demo)
         # In production, this would check against a proper vendor database
-        if email == 'vendor@taborder.com' and password == 'password123':
+        registered_vendors = load_vendors()
+        
+        # Check if vendor exists and password matches
+        vendor_found = None
+        for vendor in registered_vendors.values():
+            if vendor.get('email') == email and vendor.get('password') == password:
+                vendor_found = vendor
+                break
+        
+        if vendor_found:
             vendor_data = {
-                'vendor_id': 'VENDOR_001',
-                'email': email,
-                'name': 'Demo Vendor',
-                'phone': '+27123456789',
-                'business_name': 'TabOrder Demo Store',
-                'location': 'Johannesburg, South Africa',
-                'status': 'active'
+                'vendor_id': vendor_found.get('vendor_id', 'VENDOR_001'),
+                'email': vendor_found.get('email', email),
+                'name': vendor_found.get('name', 'Vendor'),
+                'phone': vendor_found.get('phone', ''),
+                'business_name': vendor_found.get('business_name', ''),
+                'location': vendor_found.get('location', 'Johannesburg, South Africa'),
+                'status': vendor_found.get('status', 'active')
             }
             
             # Generate a simple access token (in production, use JWT)
@@ -813,11 +841,12 @@ def vendor_register():
                 'message': 'All fields are required'
             }), 400
         
-        # For demo purposes, create a simple vendor registration
-        # In production, this would save to a proper vendor database
+        # Create vendor data and save to persistent storage
+        vendor_id = f"VENDOR_{int(time.time())}"
         vendor_data = {
-            'vendor_id': f"VENDOR_{int(time.time())}",
+            'vendor_id': vendor_id,
             'email': email,
+            'password': password,  # In production, this should be hashed
             'name': name,
             'owner_name': owner_name,
             'phone': phone,
@@ -829,8 +858,13 @@ def vendor_register():
             'status': 'pending_approval'
         }
         
+        # Save vendor to persistent storage
+        vendors = load_vendors()
+        vendors[vendor_id] = vendor_data
+        save_vendors(vendors)
+        
         # Generate a simple access token
-        access_token = f"vendor_token_{vendor_data['vendor_id']}_{int(time.time())}"
+        access_token = f"vendor_token_{vendor_id}_{int(time.time())}"
         
         return jsonify({
             'success': True,
