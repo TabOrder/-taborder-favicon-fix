@@ -2,8 +2,7 @@ services:
   - type: web
     name: taborder-frontend
     env: python
-    buildCommand: |
-      cd frontend && npm install && echo "unsafe-perm=true" > .npmrc && npx react-scripts build && ls -la build/
+    buildCommand: ./build-inline.sh
     startCommand: python standalone_app_enhanced.py
     envVars:
       - key: PYTHON_VERSION
