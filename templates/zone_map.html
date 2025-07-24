@@ -1,0 +1,1645 @@
+{% extends "base.html" %}
+
+{% block title %}Zone Map{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<style>
+.realtime-indicator {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    border-radius: 4px;
+    z-index: 1000;
+    display: none;
+}
+
+.realtime-indicator.active {
+    display: block;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.drill-down-content {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1100;
+    width: 80%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.drill-down-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.drill-down-body {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.metric-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.metric-label {
+    display: block;
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    display: block;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin-bottom: 20px;
+}
+
+.analytics-item {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.analytics-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.export-options {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.export-options .btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.filter-section {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.filter-section .form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.select2-container {
+    width: 100% !important;
+}
+
+.select2-container .select2-selection--multiple {
+    min-height: 38px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #0d6efd;
+    border: none;
+    color: white;
+    padding: 2px 8px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: white;
+    margin-right: 5px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.2);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Real-time update indicator -->
+        <div class="realtime-indicator">Real-time Updates Active</div>
+        
+        <div class="col-md-3">
+            <!-- Zone List Sidebar -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Zones</h5>
+                    <div class="input-group mt-2">
+                        <input type="text" class="form-control" id="zoneSearch" placeholder="Search zones...">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="showOverlaps">
+                        <label class="form-check-label" for="showOverlaps">Show Overlaps</label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="showHeatmap">
+                        <label class="form-check-label" for="showHeatmap">Show Heatmap</label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="showPopulationDensity">
+                        <label class="form-check-label" for="showPopulationDensity">Show Population Density</label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="groupByProvince">
+                        <label class="form-check-label" for="groupByProvince">Group by Province</label>
+                    </div>
+                    <div class="btn-group mt-2">
+                        <button class="btn btn-primary btn-sm" id="createZoneBtn">
+                            <i class="fa fa-plus"></i> Create Zone
+                        </button>
+                        <button class="btn btn-success btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fa fa-download"></i> Export
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" id="exportJSON">JSON</a></li>
+                            <li><a class="dropdown-item" href="#" id="exportCSV">CSV</a></li>
+                            <li><a class="dropdown-item" href="#" id="exportKML">KML</a></li>
+                            <li><a class="dropdown-item" href="#" id="exportReport">Analytics Report</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="exportPDF">PDF Report</a></li>
+                            <li><a class="dropdown-item" href="#" id="exportExcel">Excel Dashboard</a></li>
+                            <li><a class="dropdown-item" href="#" id="exportInteractive">Interactive Dashboard</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Zone Statistics -->
+                    <div class="zone-stats mb-3">
+                        <h6>Statistics</h6>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Zones:</span>
+                                <span class="stat-value" id="totalZones">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Active Zones:</span>
+                                <span class="stat-value" id="activeZones">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Overlapping:</span>
+                                <span class="stat-value" id="overlappingZones">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Avg. Radius:</span>
+                                <span class="stat-value" id="avgRadius">0 km</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Analytics -->
+                    <div class="analytics-section">
+                        <div class="section-header">
+                            <h5>Advanced Analytics</h5>
+                            <div class="export-options">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                        <i class="fas fa-download"></i> Export
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><h6 class="dropdown-header">Basic Export</h6></li>
+                                        <li><a class="dropdown-item" href="#" onclick="exportData('csv')">
+                                            <i class="fas fa-file-csv"></i> CSV
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="exportData('excel')">
+                                            <i class="fas fa-file-excel"></i> Excel
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="exportData('pdf')">
+                                            <i class="fas fa-file-pdf"></i> PDF
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">Advanced Export</h6></li>
+                                        <li><a class="dropdown-item" href="#" onclick="exportData('json')">
+                                            <i class="fas fa-file-code"></i> JSON
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="exportData('kml')">
+                                            <i class="fas fa-map-marked-alt"></i> KML
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="exportData('report')">
+                                            <i class="fas fa-file-alt"></i> Analytics Report
+                                        </a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-section mb-3">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label">Date Range</label>
+                                    <input type="text" class="form-control" id="dateRange">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Provinces</label>
+                                    <select class="form-select" id="provinceFilter" multiple>
+                                        <option value="all">All Provinces</option>
+                                        <option value="gauteng">Gauteng</option>
+                                        <option value="western-cape">Western Cape</option>
+                                        <option value="eastern-cape">Eastern Cape</option>
+                                        <option value="kwazulu-natal">KwaZulu-Natal</option>
+                                        <option value="limpopo">Limpopo</option>
+                                        <option value="mpumalanga">Mpumalanga</option>
+                                        <option value="north-west">North West</option>
+                                        <option value="free-state">Free State</option>
+                                        <option value="northern-cape">Northern Cape</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" id="statusFilter" multiple>
+                                        <option value="all">All Statuses</option>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                        <option value="pending">Pending</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">View Type</label>
+                                    <select class="form-select" id="viewType">
+                                        <option value="line">Line Chart</option>
+                                        <option value="bar">Bar Chart</option>
+                                        <option value="scatter">Scatter Plot</option>
+                                        <option value="heatmap">Heat Map</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="analytics-grid">
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Total area covered by all zones" onclick="showDrillDown('coverage')">
+                                <span class="analytics-label">Coverage Area:</span>
+                                <span class="analytics-value" id="totalCoverage">0 km²</span>
+                                <div class="drill-down-content" id="coverage-drilldown" style="display: none;">
+                                    <div class="drill-down-header">
+                                        <h6>Coverage Analysis</h6>
+                                        <button class="btn-close" onclick="hideDrillDown('coverage')"></button>
+                                    </div>
+                                    <div class="drill-down-body">
+                                        <div class="chart-container">
+                                            <canvas id="coverageDrilldownChart"></canvas>
+                                        </div>
+                                        <div class="metrics-grid">
+                                            <div class="metric-item">
+                                                <span class="metric-label">Urban Coverage</span>
+                                                <span class="metric-value" id="urbanCoverage">0%</span>
+                                            </div>
+                                            <div class="metric-item">
+                                                <span class="metric-label">Rural Coverage</span>
+                                                <span class="metric-value" id="ruralCoverage">0%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Estimated population within zones" onclick="showDrillDown('population')">
+                                <span class="analytics-label">Population Coverage:</span>
+                                <span class="analytics-value" id="populationCoverage">0</span>
+                                <div class="drill-down-content" id="population-drilldown" style="display: none;">
+                                    <div class="drill-down-header">
+                                        <h6>Population Analysis</h6>
+                                        <button class="btn-close" onclick="hideDrillDown('population')"></button>
+                                    </div>
+                                    <div class="drill-down-body">
+                                        <div class="chart-container">
+                                            <canvas id="populationDrilldownChart"></canvas>
+                                        </div>
+                                        <div class="metrics-grid">
+                                            <div class="metric-item">
+                                                <span class="metric-label">Density</span>
+                                                <span class="metric-value" id="populationDensity">0/km²</span>
+                                            </div>
+                                            <div class="metric-item">
+                                                <span class="metric-label">Growth Rate</span>
+                                                <span class="metric-value" id="populationGrowth">0%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Number of zones per square kilometer">
+                                <span class="analytics-label">Zone Density:</span>
+                                <span class="analytics-value" id="zoneDensity">0/km²</span>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Based on zone overlaps and coverage">
+                                <span class="analytics-label">Efficiency Score:</span>
+                                <span class="analytics-value" id="efficiencyScore">0%</span>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Based on zone utilization and performance">
+                                <span class="analytics-label">Performance Score:</span>
+                                <span class="analytics-value" id="performanceScore">0%</span>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Resource usage efficiency">
+                                <span class="analytics-label">Resource Utilization:</span>
+                                <span class="analytics-value" id="resourceUtilization">0%</span>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Monthly growth rate">
+                                <span class="analytics-label">Growth Rate:</span>
+                                <span class="analytics-value" id="growthRate">0%</span>
+                            </div>
+                            <div class="analytics-item" data-bs-toggle="tooltip" title="Cost-effectiveness metrics">
+                                <span class="analytics-label">Cost Efficiency:</span>
+                                <span class="analytics-value" id="costEfficiency">0%</span>
+                            </div>
+                        </div>
+                        <div class="analytics-charts mt-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <canvas id="coverageChart"></canvas>
+                                        <div class="chart-actions">
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="coverage" data-view="province">By Province</button>
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="coverage" data-view="time">Time Series</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <canvas id="performanceChart"></canvas>
+                                        <div class="chart-actions">
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="performance" data-view="metrics">Metrics</button>
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="performance" data-view="comparison">Comparison</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <canvas id="growthChart"></canvas>
+                                        <div class="chart-actions">
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="growth" data-view="monthly">Monthly</button>
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="growth" data-view="quarterly">Quarterly</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <canvas id="costChart"></canvas>
+                                        <div class="chart-actions">
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="cost" data-view="efficiency">Efficiency</button>
+                                            <button class="btn btn-sm btn-outline-secondary" data-chart="cost" data-view="trends">Trends</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="list-group" id="zoneList">
+                        {% for zone in zones %}
+                        <a href="#" class="list-group-item list-group-item-action zone-item" 
+                           data-zone-id="{{ zone.id }}"
+                           data-lat="{{ zone.center_lat }}"
+                           data-lng="{{ zone.center_lng }}"
+                           data-radius="{{ zone.radius_km }}"
+                           data-province="{{ zone.province }}"
+                           data-overlaps="{{ zone.overlaps|tojson if zone.overlaps else '[]' }}">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ zone.name }}</h6>
+                                <small class="text-{{ 'success' if zone.status == 'active' else 'secondary' }}">
+                                    {{ zone.status }}
+                                </small>
+                            </div>
+                            <small>{{ zone.city }}, {{ zone.province }}</small>
+                            {% if zone.overlaps %}
+                            <div class="overlap-indicator mt-1">
+                                <small class="text-danger">
+                                    <i class="fa fa-exclamation-triangle"></i> 
+                                    Overlaps with {{ zone.overlaps|length }} zones
+                                </small>
+                            </div>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <!-- Map Container -->
+            <div class="card">
+                <div class="card-body p-0">
+                    <div id="map" style="height: 600px;"></div>
+                    <!-- Map Controls -->
+                    <div class="map-controls">
+                        <div class="btn-group">
+                            <button class="btn btn-light btn-sm" id="zoomToSelection">
+                                <i class="fa fa-search-plus"></i> Zoom to Selection
+                            </button>
+                            <button class="btn btn-light btn-sm" id="measureDistance">
+                                <i class="fa fa-ruler"></i> Measure
+                            </button>
+                            <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fa fa-layer-group"></i> Map Style
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" data-style="streets">Streets</a></li>
+                                <li><a class="dropdown-item" href="#" data-style="satellite">Satellite</a></li>
+                                <li><a class="dropdown-item" href="#" data-style="terrain">Terrain</a></li>
+                                <li><a class="dropdown-item" href="#" data-style="dark">Dark</a></li>
+                            </ul>
+                        </div>
+                        <div class="btn-group ms-2">
+                            <button class="btn btn-light btn-sm" id="drawPolygon">
+                                <i class="fa fa-draw-polygon"></i> Draw Area
+                            </button>
+                            <button class="btn btn-light btn-sm" id="addMarker">
+                                <i class="fa fa-map-marker"></i> Add Marker
+                            </button>
+                            <button class="btn btn-light btn-sm" id="clearDrawing">
+                                <i class="fa fa-eraser"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Legend -->
+                    <div class="map-legend">
+                        <h6>Overlap Severity</h6>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #dc3545;"></span>
+                            <span>Severe (3+ overlaps)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #ffc107;"></span>
+                            <span>Moderate (2 overlaps)</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background-color: #28a745;"></span>
+                            <span>Minor (1 overlap)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Zone Modal -->
+<div class="modal fade" id="createZoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Zone</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createZoneForm">
+                    <div class="mb-3">
+                        <label for="newZoneName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="newZoneName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newZoneCountry" class="form-label">Country</label>
+                        <input type="text" class="form-control" id="newZoneCountry" value="South Africa" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newZoneProvince" class="form-label">Province</label>
+                        <select class="form-select" id="newZoneProvince" required>
+                            <option value="">Select Province</option>
+                            <option value="Gauteng">Gauteng</option>
+                            <option value="Western Cape">Western Cape</option>
+                            <option value="Eastern Cape">Eastern Cape</option>
+                            <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                            <option value="Limpopo">Limpopo</option>
+                            <option value="Mpumalanga">Mpumalanga</option>
+                            <option value="North West">North West</option>
+                            <option value="Free State">Free State</option>
+                            <option value="Northern Cape">Northern Cape</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newZoneCity" class="form-label">City</label>
+                        <input type="text" class="form-control" id="newZoneCity" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newZoneRadius" class="form-label">Radius (km)</label>
+                        <input type="number" class="form-control" id="newZoneRadius" min="0.1" step="0.1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newZoneVendorId" class="form-label">Vendor ID</label>
+                        <input type="text" class="form-control" id="newZoneVendorId">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveNewZone">Create Zone</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Zone Modal -->
+<div class="modal fade" id="editZoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Zone</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editZoneForm">
+                    <input type="hidden" id="editZoneId">
+                    <div class="mb-3">
+                        <label for="editZoneName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editZoneName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editZoneRadius" class="form-label">Radius (km)</label>
+                        <input type="number" class="form-control" id="editZoneRadius" min="0.1" step="0.1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editZoneStatus" class="form-label">Status</label>
+                        <select class="form-select" id="editZoneStatus">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveZoneChanges">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Analytics Panel -->
+<div class="analytics-panel">
+    <h6>Zone Analytics</h6>
+    <div class="analytics-grid">
+        <div class="analytics-item">
+            <span class="analytics-label">Coverage Area:</span>
+            <span class="analytics-value" id="totalCoverage">0 km²</span>
+        </div>
+        <div class="analytics-item">
+            <span class="analytics-label">Population Coverage:</span>
+            <span class="analytics-value" id="populationCoverage">0</span>
+        </div>
+        <div class="analytics-item">
+            <span class="analytics-label">Avg. Zone Density:</span>
+            <span class="analytics-value" id="zoneDensity">0/km²</span>
+        </div>
+        <div class="analytics-item">
+            <span class="analytics-label">Efficiency Score:</span>
+            <span class="analytics-value" id="efficiencyScore">0%</span>
+        </div>
+    </div>
+    <div class="analytics-chart mt-3">
+        <canvas id="coverageChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/leaflet-measure@3.1.0/dist/leaflet-measure.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-measure@3.1.0/dist/leaflet-measure.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
+<style>
+.map-legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+.map-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+}
+.legend-color {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    border-radius: 3px;
+}
+.zone-item.hidden {
+    display: none;
+}
+.leaflet-popup-content {
+    min-width: 200px;
+}
+.radius-control {
+    margin-top: 10px;
+    padding: 5px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+.province-group {
+    background: #f8f9fa;
+    padding: 5px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+}
+.province-header {
+    font-weight: bold;
+    cursor: pointer;
+}
+.province-zones {
+    margin-left: 15px;
+}
+.drawing-tools {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+.leaflet-draw-tooltip {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+.leaflet-draw-actions {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px;
+}
+.zone-stats {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.stat-label {
+    font-size: 0.8em;
+    color: #6c757d;
+}
+.stat-value {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #007bff;
+}
+.province-group {
+    background: #f8f9fa;
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+}
+.province-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    cursor: pointer;
+}
+.province-stats {
+    font-size: 0.8em;
+    color: #6c757d;
+}
+.province-zones {
+    margin-left: 15px;
+    margin-top: 5px;
+}
+.analytics-panel {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+.analytics-item {
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.analytics-item:hover {
+    background-color: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.chart-container {
+    position: relative;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.chart-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+}
+.chart-actions .btn {
+    padding: 2px 8px;
+    font-size: 0.8rem;
+}
+.analytics-value {
+    font-weight: bold;
+    color: #0d6efd;
+}
+.analytics-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+/* Real-time update styles */
+.realtime-indicator {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    border-radius: 4px;
+    z-index: 1000;
+    display: none;
+}
+
+.realtime-indicator.active {
+    display: block;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Collaboration styles */
+.collaboration-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 300px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+
+.collaboration-header {
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+}
+
+.collaboration-content {
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.comment {
+    margin-bottom: 10px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.comment-header {
+    font-size: 0.8em;
+    color: #6c757d;
+}
+
+.comment-text {
+    margin-top: 5px;
+}
+
+/* Predictive analytics styles */
+.prediction-panel {
+    background: #fff;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.prediction-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.prediction-chart {
+    height: 200px;
+    margin-top: 10px;
+}
+</style>
+
+<script>
+// Initialize WebSocket connection
+const socket = io('http://localhost:5002');
+
+// Real-time update handling
+socket.on('connect', () => {
+    console.log('Connected to WebSocket server');
+    document.querySelector('.realtime-indicator').classList.add('active');
+});
+
+socket.on('disconnect', () => {
+    console.log('Disconnected from WebSocket server');
+    document.querySelector('.realtime-indicator').classList.remove('active');
+});
+
+socket.on('zone_update', (data) => {
+    updateZoneData(data);
+    updateAnalytics();
+});
+
+socket.on('analytics_update', (data) => {
+    updateAnalyticsDisplay(data);
+});
+
+// Predictive Analytics
+let predictionModel = null;
+
+async function initializePredictionModel() {
+    // Load or create TensorFlow.js model
+    try {
+        predictionModel = await tf.loadLayersModel('zone_prediction_model/model.json');
+    } catch (e) {
+        console.log('Creating new prediction model...');
+        predictionModel = createPredictionModel();
+    }
+}
+
+function createPredictionModel() {
+    const model = tf.sequential();
+    model.add(tf.layers.dense({ units: 32, activation: 'relu', inputShape: [10] }));
+    model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
+    model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
+    model.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
+    return model;
+}
+
+async function predictZonePerformance(zoneData) {
+    if (!predictionModel) await initializePredictionModel();
+    
+    const input = tf.tensor2d([prepareZoneFeatures(zoneData)]);
+    const prediction = predictionModel.predict(input);
+    const result = await prediction.data();
+    return result[0];
+}
+
+function prepareZoneFeatures(zoneData) {
+    // Prepare zone data for prediction
+    return [
+        zoneData.area,
+        zoneData.population,
+        zoneData.efficiency,
+        zoneData.performance,
+        zoneData.resourceUtilization,
+        zoneData.growthRate,
+        zoneData.costEfficiency,
+        zoneData.overlapCount,
+        zoneData.activeTime,
+        zoneData.orderCount
+    ];
+}
+
+// Collaboration Features
+let activeUsers = new Set();
+let comments = [];
+
+socket.on('user_joined', (user) => {
+    activeUsers.add(user);
+    updateActiveUsers();
+});
+
+socket.on('user_left', (user) => {
+    activeUsers.delete(user);
+    updateActiveUsers();
+});
+
+socket.on('new_comment', (comment) => {
+    comments.push(comment);
+    updateComments();
+});
+
+function updateActiveUsers() {
+    const userList = document.getElementById('activeUsers');
+    userList.innerHTML = Array.from(activeUsers).map(user => 
+        `<div class="user-item">${user}</div>`
+    ).join('');
+}
+
+function updateComments() {
+    const commentList = document.getElementById('commentList');
+    commentList.innerHTML = comments.map(comment => `
+        <div class="comment">
+            <div class="comment-header">
+                <strong>${comment.user}</strong> - ${new Date(comment.timestamp).toLocaleString()}
+            </div>
+            <div class="comment-text">${comment.text}</div>
+        </div>
+    `).join('');
+}
+
+function addComment(text) {
+    const comment = {
+        user: currentUser,
+        text: text,
+        timestamp: new Date().toISOString()
+    };
+    socket.emit('new_comment', comment);
+}
+
+// Enhanced Analytics with Predictive Features
+function updateAnalytics() {
+    // ... existing analytics code ...
+
+    // Add predictive analytics
+    const zones = document.querySelectorAll('.zone-item');
+    zones.forEach(async (zone) => {
+        const zoneData = collectZoneData(zone);
+        const prediction = await predictZonePerformance(zoneData);
+        
+        // Update prediction display
+        const predictionElement = document.getElementById(`prediction-${zone.dataset.zoneId}`);
+        if (predictionElement) {
+            predictionElement.textContent = `Predicted Performance: ${(prediction * 100).toFixed(1)}%`;
+        }
+    });
+}
+
+// Add collaboration panel to the page
+document.body.insertAdjacentHTML('beforeend', `
+    <div class="realtime-indicator">Real-time Updates Active</div>
+    <div class="collaboration-panel">
+        <div class="collaboration-header" onclick="toggleCollaborationPanel()">
+            <h6 class="mb-0">Collaboration</h6>
+        </div>
+        <div class="collaboration-content" id="collaborationContent" style="display: none;">
+            <div class="mb-3">
+                <h6>Active Users</h6>
+                <div id="activeUsers"></div>
+            </div>
+            <div class="mb-3">
+                <h6>Comments</h6>
+                <div id="commentList"></div>
+                <div class="mt-3">
+                    <input type="text" class="form-control" id="commentInput" placeholder="Add a comment...">
+                    <button class="btn btn-primary btn-sm mt-2" onclick="addComment(document.getElementById('commentInput').value)">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+`);
+
+function toggleCollaborationPanel() {
+    const content = document.getElementById('collaborationContent');
+    content.style.display = content.style.display === 'none' ? 'block' : 'none';
+}
+
+// Initialize real-time features
+document.addEventListener('DOMContentLoaded', () => {
+    initializePredictionModel();
+    socket.emit('join_room', 'zone_map');
+});
+
+// Enhanced drill-down functionality
+function showDrillDown(type) {
+    const drilldown = document.getElementById(`${type}-drilldown`);
+    drilldown.style.display = 'block';
+    initializeDrilldownChart(type);
+}
+
+function hideDrillDown(type) {
+    const drilldown = document.getElementById(`${type}-drilldown`);
+    drilldown.style.display = 'none';
+}
+
+function initializeDrilldownChart(type) {
+    const ctx = document.getElementById(`${type}DrilldownChart`).getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (window[`${type}DrilldownChart`]) {
+        window[`${type}DrilldownChart`].destroy();
+    }
+    
+    // Create new chart with enhanced options
+    window[`${type}DrilldownChart`] = new Chart(ctx, {
+        type: 'line',
+        data: getChartData(type),
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    enabled: true,
+                    mode: 'index',
+                    intersect: false,
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function getChartData(type) {
+    // Sample data - replace with actual data from your backend
+    const data = {
+        coverage: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Urban Coverage',
+                data: [65, 70, 75, 80, 85, 90],
+                borderColor: '#0d6efd',
+                tension: 0.4
+            }, {
+                label: 'Rural Coverage',
+                data: [45, 50, 55, 60, 65, 70],
+                borderColor: '#198754',
+                tension: 0.4
+            }]
+        },
+        population: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Population Growth',
+                data: [1000, 1200, 1400, 1600, 1800, 2000],
+                borderColor: '#dc3545',
+                tension: 0.4
+            }, {
+                label: 'Density',
+                data: [50, 60, 70, 80, 90, 100],
+                borderColor: '#ffc107',
+                tension: 0.4
+            }]
+        }
+    };
+    
+    return data[type] || {};
+}
+
+// Enhanced filtering capabilities
+function initializeFilters() {
+    const filterOptions = {
+        dateRange: {
+            start: null,
+            end: null
+        },
+        provinces: [],
+        status: [],
+        metrics: []
+    };
+    
+    // Add date range picker
+    const dateRangePicker = new DateRangePicker('#dateRange', {
+        onChange: (start, end) => {
+            filterOptions.dateRange = { start, end };
+            updateFilters();
+        }
+    });
+    
+    // Add province filter
+    const provinceFilter = new MultiSelect('#provinceFilter', {
+        options: getProvinces(),
+        onChange: (selected) => {
+            filterOptions.provinces = selected;
+            updateFilters();
+        }
+    });
+    
+    // Add status filter
+    const statusFilter = new MultiSelect('#statusFilter', {
+        options: ['Active', 'Inactive', 'Pending'],
+        onChange: (selected) => {
+            filterOptions.status = selected;
+            updateFilters();
+        }
+    });
+}
+
+function updateFilters() {
+    // Update charts and metrics based on selected filters
+    updateAnalytics();
+    updateCharts();
+}
+
+// Initialize enhanced features
+document.addEventListener('DOMContentLoaded', () => {
+    initializeFilters();
+    initializePredictionModel();
+    socket.emit('join_room', 'zone_map');
+});
+
+function exportData(format) {
+    const data = collectExportData();
+    
+    switch(format) {
+        case 'csv':
+            exportToCSV(data);
+            break;
+        case 'excel':
+            exportToExcel(data);
+            break;
+        case 'pdf':
+            exportToPDF(data);
+            break;
+        case 'json':
+            exportToJSON(data);
+            break;
+        case 'kml':
+            exportToKML(data);
+            break;
+        case 'report':
+            exportAnalyticsReport(data);
+            break;
+    }
+}
+
+function collectExportData() {
+    return {
+        summary: {
+            totalZones: document.getElementById('totalZones').textContent,
+            activeZones: document.getElementById('activeZones').textContent,
+            overlappingZones: document.getElementById('overlappingZones').textContent,
+            avgRadius: document.getElementById('avgRadius').textContent
+        },
+        metrics: {
+            coverage: {
+                total: document.getElementById('totalCoverage').textContent,
+                urban: document.getElementById('urbanCoverage').textContent,
+                rural: document.getElementById('ruralCoverage').textContent,
+                details: getChartData('coverage')
+            },
+            population: {
+                total: document.getElementById('populationCoverage').textContent,
+                density: document.getElementById('populationDensity').textContent,
+                growth: document.getElementById('populationGrowth').textContent,
+                details: getChartData('population')
+            },
+            efficiency: {
+                score: document.getElementById('efficiencyScore').textContent,
+                details: getChartData('efficiency')
+            },
+            performance: {
+                score: document.getElementById('performanceScore').textContent,
+                details: getChartData('performance')
+            }
+        },
+        zones: Array.from(document.querySelectorAll('.zone-item')).map(zone => ({
+            id: zone.dataset.zoneId,
+            name: zone.querySelector('h6').textContent,
+            status: zone.querySelector('small').textContent,
+            location: {
+                city: zone.querySelector('small:nth-child(2)').textContent.split(',')[0],
+                province: zone.querySelector('small:nth-child(2)').textContent.split(',')[1],
+                lat: zone.dataset.lat,
+                lng: zone.dataset.lng,
+                radius: zone.dataset.radius
+            },
+            overlaps: JSON.parse(zone.dataset.overlaps || '[]')
+        })),
+        filters: {
+            dateRange: $('#dateRange').data('daterangepicker'),
+            provinces: $('#provinceFilter').val(),
+            status: $('#statusFilter').val()
+        },
+        timestamp: new Date().toISOString()
+    };
+}
+
+function exportToCSV(data) {
+    let csv = 'Metric,Value\n';
+    csv += `Coverage Area,${data.metrics.coverage.total}\n`;
+    csv += `Population Coverage,${data.metrics.population.total}\n`;
+    csv += `Efficiency Score,${data.metrics.efficiency.score}\n`;
+    csv += `Performance Score,${data.metrics.performance.score}\n`;
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'zone_analytics.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportToExcel(data) {
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Create summary sheet
+    const summary = [
+        ['Metric', 'Value'],
+        ['Coverage Area', data.metrics.coverage.total],
+        ['Population Coverage', data.metrics.population.total],
+        ['Efficiency Score', data.metrics.efficiency.score],
+        ['Performance Score', data.metrics.performance.score]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(summary);
+    XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+    
+    // Add detailed sheets
+    Object.entries(data.metrics).forEach(([key, value]) => {
+        if (value.details) {
+            const details = [
+                ['Date', ...value.details.labels],
+                ...value.details.datasets.map(ds => [ds.label, ...ds.data])
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(details);
+            XLSX.utils.book_append_sheet(wb, ws, key.charAt(0).toUpperCase() + key.slice(1));
+        }
+    });
+    
+    // Save file
+    XLSX.writeFile(wb, 'zone_analytics.xlsx');
+}
+
+function exportToPDF(data) {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text('Zone Analytics Report', 20, 20);
+    
+    // Add summary
+    doc.setFontSize(12);
+    doc.text('Summary', 20, 40);
+    doc.setFontSize(10);
+    doc.text(`Coverage Area: ${data.metrics.coverage.total}`, 20, 50);
+    doc.text(`Population Coverage: ${data.metrics.population.total}`, 20, 60);
+    doc.text(`Efficiency Score: ${data.metrics.efficiency.score}`, 20, 70);
+    doc.text(`Performance Score: ${data.metrics.performance.score}`, 20, 80);
+    
+    // Add charts
+    Object.entries(data.metrics).forEach(([key, value], index) => {
+        if (value.details) {
+            const canvas = document.querySelector(`#${key}DrilldownChart`);
+            if (canvas) {
+                const imgData = canvas.toDataURL('image/png');
+                doc.addPage();
+                doc.text(key.charAt(0).toUpperCase() + key.slice(1) + ' Analysis', 20, 20);
+                doc.addImage(imgData, 'PNG', 20, 30, 170, 100);
+            }
+        }
+    });
+    
+    // Save file
+    doc.save('zone_analytics.pdf');
+}
+
+function exportToJSON(data) {
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zone_analytics_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportToKML(data) {
+    let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+    <name>Zone Analytics</name>
+    <description>Exported on ${new Date().toLocaleString()}</description>`;
+
+    data.zones.forEach(zone => {
+        kml += `
+    <Placemark>
+        <name>${zone.name}</name>
+        <description>
+            Status: ${zone.status}
+            Coverage: ${zone.location.city}, ${zone.location.province}
+            Overlaps: ${zone.overlaps.length}
+        </description>
+        <Point>
+            <coordinates>${zone.location.lng},${zone.location.lat},0</coordinates>
+        </Point>
+        <Circle>
+            <center>${zone.location.lng},${zone.location.lat},0</center>
+            <radius>${zone.location.radius * 1000}</radius>
+        </Circle>
+    </Placemark>`;
+    });
+
+    kml += `
+</Document>
+</kml>`;
+
+    const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zone_analytics_${new Date().toISOString().split('T')[0]}.kml`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportAnalyticsReport(data) {
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Zone Analytics Report', 20, 20);
+    
+    // Summary
+    doc.setFontSize(14);
+    doc.text('Summary', 20, 40);
+    doc.setFontSize(12);
+    doc.text(`Total Zones: ${data.summary.totalZones}`, 20, 50);
+    doc.text(`Active Zones: ${data.summary.activeZones}`, 20, 60);
+    doc.text(`Overlapping Zones: ${data.summary.overlappingZones}`, 20, 70);
+    doc.text(`Average Radius: ${data.summary.avgRadius}`, 20, 80);
+    
+    // Metrics
+    doc.setFontSize(14);
+    doc.text('Key Metrics', 20, 100);
+    doc.setFontSize(12);
+    doc.text(`Coverage Area: ${data.metrics.coverage.total}`, 20, 110);
+    doc.text(`Population Coverage: ${data.metrics.population.total}`, 20, 120);
+    doc.text(`Efficiency Score: ${data.metrics.efficiency.score}`, 20, 130);
+    doc.text(`Performance Score: ${data.metrics.performance.score}`, 20, 140);
+    
+    // Add charts
+    const charts = ['coverage', 'population', 'efficiency', 'performance'];
+    charts.forEach((chart, index) => {
+        const canvas = document.querySelector(`#${chart}DrilldownChart`);
+        if (canvas) {
+            const imgData = canvas.toDataURL('image/png');
+            doc.addPage();
+            doc.setFontSize(14);
+            doc.text(`${chart.charAt(0).toUpperCase() + chart.slice(1)} Analysis`, 20, 20);
+            doc.addImage(imgData, 'PNG', 20, 30, 170, 100);
+        }
+    });
+    
+    // Add zone details
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('Zone Details', 20, 20);
+    
+    const zoneTable = data.zones.map(zone => [
+        zone.name,
+        zone.status,
+        `${zone.location.city}, ${zone.location.province}`,
+        zone.overlaps.length.toString()
+    ]);
+    
+    doc.autoTable({
+        head: [['Zone Name', 'Status', 'Location', 'Overlaps']],
+        body: zoneTable,
+        startY: 30
+    });
+    
+    // Save file
+    doc.save(`zone_analytics_report_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// Initialize date range picker
+$(document).ready(function() {
+    $('#dateRange').daterangepicker({
+        startDate: moment().subtract(6, 'months'),
+        endDate: moment(),
+        ranges: {
+           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+           'This Month': [moment().startOf('month'), moment().endOf('month')],
+           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')],
+           'Last 6 Months': [moment().subtract(6, 'months'), moment()],
+           'Last Year': [moment().subtract(1, 'year'), moment()]
+        }
+    });
+    
+    // Initialize select2 for multiple select
+    $('#provinceFilter, #statusFilter').select2({
+        placeholder: 'Select options',
+        allowClear: true
+    });
+    
+    // Handle view type change
+    $('#viewType').change(function() {
+        updateChartTypes($(this).val());
+    });
+});
+
+function updateChartTypes(type) {
+    const charts = ['coverage', 'population', 'efficiency', 'performance'];
+    charts.forEach(chartId => {
+        const canvas = document.querySelector(`#${chartId}DrilldownChart`);
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const data = getChartData(chartId);
+            
+            // Destroy existing chart
+            if (window[`${chartId}Chart`]) {
+                window[`${chartId}Chart`].destroy();
+            }
+            
+            // Create new chart with selected type
+            window[`${chartId}Chart`] = new Chart(ctx, {
+                type: type,
+                data: data,
+                options: getChartOptions(type)
+            });
+        }
+    });
+}
+
+function getChartOptions(type) {
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            tooltip: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    };
+    
+    switch(type) {
+        case 'scatter':
+            return {
+                ...baseOptions,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom'
+                    }
+                }
+            };
+        case 'heatmap':
+            return {
+                ...baseOptions,
+                scales: {
+                    x: {
+                        type: 'category',
+                        labels: ['Low', 'Medium', 'High']
+                    },
+                    y: {
+                        type: 'category',
+                        labels: ['Low', 'Medium', 'High']
+                    }
+                }
+            };
+        default:
+            return baseOptions;
+    }
+}
+
+// Update chart data based on filters
+function updateCharts() {
+    const dateRange = $('#dateRange').data('daterangepicker');
+    const provinces = $('#provinceFilter').val();
+    const statuses = $('#statusFilter').val();
+    
+    // Make API call to get filtered data
+    fetch('/api/analytics', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            startDate: dateRange.startDate.format('YYYY-MM-DD'),
+            endDate: dateRange.endDate.format('YYYY-MM-DD'),
+            provinces: provinces,
+            statuses: statuses
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Update charts with new data
+        Object.entries(data).forEach(([key, value]) => {
+            const chart = window[`${key}Chart`];
+            if (chart) {
+                chart.data = value;
+                chart.update();
+            }
+        });
+    });
+}
+
+// Add event listeners for filters
+$('#dateRange, #provinceFilter, #statusFilter').on('change', updateCharts);
+</script>
+{% endblock %} 

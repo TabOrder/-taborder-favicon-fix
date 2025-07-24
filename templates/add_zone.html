@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Add Zone{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Add New Zone</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_zone') }}">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Zone Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="country" class="form-label">Country</label>
+                        <input type="text" class="form-control" id="country" name="country" value="South Africa" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="province" class="form-label">Province</label>
+                        <select class="form-select" id="province" name="province" required>
+                            <option value="">Select Province</option>
+                            <option value="Gauteng">Gauteng</option>
+                            <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                            <option value="Western Cape">Western Cape</option>
+                            <option value="Eastern Cape">Eastern Cape</option>
+                            <option value="Limpopo">Limpopo</option>
+                            <option value="Mpumalanga">Mpumalanga</option>
+                            <option value="North West">North West</option>
+                            <option value="Free State">Free State</option>
+                            <option value="Northern Cape">Northern Cape</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="city" class="form-label">City</label>
+                        <input type="text" class="form-control" id="city" name="city" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="center_lat" class="form-label">Latitude</label>
+                        <input type="number" class="form-control" id="center_lat" name="center_lat" 
+                               step="0.000001" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="center_lng" class="form-label">Longitude</label>
+                        <input type="number" class="form-control" id="center_lng" name="center_lng" 
+                               step="0.000001" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="radius_km" class="form-label">Radius (km)</label>
+                        <input type="number" class="form-control" id="radius_km" name="radius_km" 
+                               min="0.1" step="0.1" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="vendor_id" class="form-label">Vendor ID</label>
+                        <input type="text" class="form-control" id="vendor_id" name="vendor_id">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-save"></i> Save Zone
+                        </button>
+                        <a href="{{ url_for('zone_dashboard') }}" class="btn btn-secondary">
+                            <i class="fa fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add geocoding functionality
+document.getElementById('city').addEventListener('change', async function() {
+    const city = this.value;
+    const province = document.getElementById('province').value;
+    
+    if (city && province) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${city},${province},South Africa`);
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                document.getElementById('center_lat').value = parseFloat(data[0].lat);
+                document.getElementById('center_lng').value = parseFloat(data[0].lon);
+            }
+        } catch (error) {
+            console.error('Error geocoding address:', error);
+        }
+    }
+});
+</script>
+{% endblock %} 

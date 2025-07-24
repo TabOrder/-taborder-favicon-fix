@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Import Zones{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- CSV Import -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Import from CSV</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('import_zones') }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="csv_file" class="form-label">CSV File</label>
+                            <input type="file" class="form-control" id="csv_file" name="file" 
+                                   accept=".csv" required>
+                            <div class="form-text">
+                                CSV should contain columns: name, country, province, city, 
+                                center_lat, center_lng, radius_km, vendor_id
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-upload"></i> Import CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- JSON Import -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Import from JSON</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('import_zones') }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="json_file" class="form-label">JSON File</label>
+                            <input type="file" class="form-control" id="json_file" name="file" 
+                                   accept=".json" required>
+                            <div class="form-text">
+                                JSON should contain an array of zone objects with address information
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-upload"></i> Import JSON
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sample Format -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Sample Format</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="formatTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="csv-tab" data-bs-toggle="tab" 
+                               href="#csv-format" role="tab">CSV Format</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="json-tab" data-bs-toggle="tab" 
+                               href="#json-format" role="tab">JSON Format</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3" id="formatTabsContent">
+                        <div class="tab-pane fade show active" id="csv-format" role="tabpanel">
+                            <pre class="bg-light p-3"><code>name,country,province,city,center_lat,center_lng,radius_km,vendor_id
+Soweto,South Africa,Gauteng,Johannesburg,-26.2227,27.8900,10.0,vendor_soweto
+Alexandra,South Africa,Gauteng,Johannesburg,-26.1062,28.1061,5.0,vendor_alex</code></pre>
+                        </div>
+                        <div class="tab-pane fade" id="json-format" role="tabpanel">
+                            <pre class="bg-light p-3"><code>[
+  {
+    "name": "Soweto",
+    "address": "Soweto, Johannesburg, Gauteng, South Africa",
+    "country": "South Africa",
+    "province": "Gauteng",
+    "city": "Johannesburg",
+    "radius_km": 10.0,
+    "vendor_id": "vendor_soweto"
+  },
+  {
+    "name": "Alexandra",
+    "address": "Alexandra, Johannesburg, Gauteng, South Africa",
+    "country": "South Africa",
+    "province": "Gauteng",
+    "city": "Johannesburg",
+    "radius_km": 5.0,
+    "vendor_id": "vendor_alex"
+  }
+]</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
