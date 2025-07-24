@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabOrder CORS Proxy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦁 TabOrder CORS Proxy</h1>
+        <p>This page helps test the USSD backend API endpoints directly.</p>
+        
+        <div class="status info">
+            <h3>USSD Backend: https://taborder.onrender.com</h3>
+        </div>
+        
+        <div>
+            <button onclick="testHealth()">Test Health Endpoint</button>
+            <button onclick="testMainAPI()">Test Main API</button>
+            <button onclick="testAll()">Test All Endpoints</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const USSD_API_URL = 'https://taborder.onrender.com';
+        
+        function addResult(title, data, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `status ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function testHealth() {
+            try {
+                const response = await fetch(`${USSD_API_URL}/health`);
+                const data = await response.json();
+                addResult('✅ Health Check Success', data);
+            } catch (error) {
+                addResult('❌ Health Check Failed', { error: error.message }, true);
+            }
+        }
+        
+        async function testMainAPI() {
+            try {
+                const response = await fetch(`${USSD_API_URL}/`);
+                const data = await response.json();
+                addResult('✅ Main API Success', data);
+            } catch (error) {
+                addResult('❌ Main API Failed', { error: error.message }, true);
+            }
+        }
+        
+        async function testAll() {
+            document.getElementById('results').innerHTML = '';
+            await testHealth();
+            await testMainAPI();
+        }
+        
+        // Auto-test on page load
+        window.onload = function() {
+            addResult('🚀 Ready to Test', { message: 'Click buttons above to test USSD backend endpoints' });
+        };
+    </script>
+</body>
+</html> 

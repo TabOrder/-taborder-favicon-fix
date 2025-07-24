@@ -1,100 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Box } from '@mui/material';
-import VendorLogin from './components/VendorLogin';
-import VendorRegistration from './components/VendorRegistration';
-import VendorDashboard from './components/VendorDashboard';
-import EnhancedVendorDashboard from './components/EnhancedVendorDashboard';
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
-
-// API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:10000';
-
-interface VendorData {
-  access_token: string;
-  vendor_id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import React from 'react';
 
 const App: React.FC = () => {
-  const [vendorData, setVendorData] = useState<VendorData | null>(null);
-  const [showRegistration, setShowRegistration] = useState(false);
-
-  useEffect(() => {
-    // Check for existing vendor session
-    const token = localStorage.getItem('vendorToken');
-    const storedVendorData = localStorage.getItem('vendorData');
-    
-    if (token && storedVendorData) {
-      try {
-        const parsedData = JSON.parse(storedVendorData);
-        setVendorData(parsedData);
-      } catch (err) {
-        // Clear invalid data
-        localStorage.removeItem('vendorToken');
-        localStorage.removeItem('vendorData');
-      }
-    }
-  }, []);
-
-  const handleLoginSuccess = (data: VendorData) => {
-    setVendorData(data);
-    setShowRegistration(false);
-  };
-
-  const handleRegistrationSuccess = (data: VendorData) => {
-    setVendorData(data);
-    setShowRegistration(false);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('vendorToken');
-    localStorage.removeItem('vendorData');
-    setVendorData(null);
-  };
-
-  const handleBackToLogin = () => {
-    setShowRegistration(false);
-  };
-
-  const handleShowRegistration = () => {
-    setShowRegistration(true);
-  };
-
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ minHeight: '100vh' }}>
-        {vendorData ? (
-          <EnhancedVendorDashboard 
-            vendorData={vendorData}
-            onLogout={handleLogout}
-            apiBaseUrl={API_BASE_URL}
-          />
-        ) : showRegistration ? (
-          <VendorRegistration
-            onRegistrationSuccess={handleRegistrationSuccess}
-            onBackToLogin={handleBackToLogin}
-          />
-        ) : (
-          <VendorLogin
-            onLoginSuccess={handleLoginSuccess}
-          />
-        )}
-      </Box>
-    </ThemeProvider>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      minHeight: '100vh',
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: '#f5f5f5'
+    }}>
+      <div style={{ 
+        textAlign: 'center',
+        padding: '2rem',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        <h1 style={{ color: '#1976d2', marginBottom: '1rem' }}>
+          🦁 TabOrder Frontend
+        </h1>
+        <p style={{ color: '#666', fontSize: '1.1rem' }}>
+          Frontend is working! Favicon should be accessible.
+        </p>
+        <p style={{ color: '#999', fontSize: '0.9rem', marginTop: '1rem' }}>
+          Check the browser tab for the favicon icon.
+        </p>
+      </div>
+    </div>
   );
 };
 
