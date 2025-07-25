@@ -1110,16 +1110,16 @@ def vendor_register():
         logger.info(f"📝 Registration data received: {list(data.keys()) if data else 'None'}")
         
         email = data.get('email', '').strip()
-        password = data.get('password', '')
+        password = data.get('password', '').strip()  # Added .strip() to password
         business_name = data.get('business_name', '').strip()
         phone = data.get('phone', '').strip()
         owner_name = data.get('owner_name', '').strip()  # Frontend sends owner_name
         name = owner_name  # Use owner_name as name for backend compatibility
         
-        logger.info(f"📧 Email: {email}, 📞 Phone: {phone}, 🏢 Business: {business_name}")
+        logger.info(f"📧 Email: '{email}', 📞 Phone: '{phone}', 🏢 Business: '{business_name}', 👤 Owner: '{owner_name}', 🔑 Password: '{password[:3]}***'")
         
         if not email or not password or not business_name or not phone or not owner_name:
-            logger.error(f"❌ Missing required fields: email={bool(email)}, password={bool(password)}, business_name={bool(business_name)}, phone={bool(phone)}, owner_name={bool(owner_name)}")
+            logger.error(f"❌ Missing required fields: email='{email}' ({bool(email)}), password='{password[:3]}***' ({bool(password)}), business_name='{business_name}' ({bool(business_name)}), phone='{phone}' ({bool(phone)}), owner_name='{owner_name}' ({bool(owner_name)})")
             return jsonify({
                 'success': False,
                 'message': 'All fields are required'
