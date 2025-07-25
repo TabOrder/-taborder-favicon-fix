@@ -7,7 +7,7 @@
     "python": "3.11.7"
   },
   "scripts": {
-    "build": "./build-fix-permissions.sh",
+    "build": "./build-python-first.sh",
     "build-alt": "./build.sh",
     "start": "python standalone_app_enhanced.py",
     "dev": "python standalone_app_enhanced.py"
