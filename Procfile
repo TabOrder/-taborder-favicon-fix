@@ -1,1 +1,1 @@
-web: python standalone_app_enhanced.py 
+web: python wsgi.py 
