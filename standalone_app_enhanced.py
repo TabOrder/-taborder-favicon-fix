@@ -1098,6 +1098,13 @@ def vendor_register():
     try:
         logger.info("🔐 Vendor registration request received")
         
+        # Debug request details
+        logger.info(f"📋 Request method: {request.method}")
+        logger.info(f"📋 Request headers: {dict(request.headers)}")
+        logger.info(f"📋 Request content type: {request.content_type}")
+        logger.info(f"📋 Request is JSON: {request.is_json}")
+        logger.info(f"📋 Request data: {request.get_data()}")
+        
         # Check if request has JSON data
         if not request.is_json:
             logger.error("❌ Request is not JSON")
@@ -1107,7 +1114,16 @@ def vendor_register():
             }), 400
         
         data = request.get_json()
+        logger.info(f"📝 Raw JSON data: {data}")
         logger.info(f"📝 Registration data received: {list(data.keys()) if data else 'None'}")
+        
+        # Check if data is None or empty
+        if not data:
+            logger.error("❌ JSON data is None or empty")
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
         
         email = data.get('email', '').strip()
         password = data.get('password', '').strip()  # Added .strip() to password
