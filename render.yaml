@@ -3,7 +3,7 @@ services:
     name: taborder-frontend
     env: python
     buildCommand: npm run build
-    startCommand: python standalone_app_enhanced.py
+    startCommand: python app.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
