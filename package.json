@@ -9,10 +9,6 @@
     "start": "python standalone_app_enhanced.py",
     "dev": "python standalone_app_enhanced.py"
   },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/TabOrder/-taborder-favicon-fix.git"
