@@ -2502,13 +2502,37 @@ def catch_all(path):
     try:
         # Don't serve React for API routes
         if path.startswith('api/'):
+            logger.error(f"❌ API route '{path}' caught by catch_all - this should not happen!")
             return jsonify({'error': 'API route not found'}), 404
             
+        # Only serve React for non-API routes
+        logger.info(f"📁 Serving React route: {path}")
         from flask import send_from_directory
         return send_from_directory('frontend/build', 'index.html')
     except Exception as e:
         logger.error(f"Error serving React route {path}: {e}")
         return jsonify({'error': 'Route not found'}), 404
+
+@app.route('/api/test-registration', methods=['POST'])
+def test_registration():
+    """Simple test endpoint to verify API routing"""
+    logger.info("🧪 Test registration endpoint called")
+    try:
+        data = request.get_json()
+        logger.info(f"🧪 Test data received: {data}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Test registration endpoint working',
+            'received_data': data
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"🧪 Test registration error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Test error: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     print("🚀 Starting TabOrder Flask app...")
