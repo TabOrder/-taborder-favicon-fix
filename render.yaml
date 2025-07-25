@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: taborder-flask-app
+    name: taborder-fullstack
     env: python
-    buildCommand: npm run build
-    startCommand: python wsgi.py
+    buildCommand: "npm run build"
+    startCommand: "python app.py"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.7
+        value: "3.11.7"
       - key: PORT
-        value: 10000 
+        value: "10000" 

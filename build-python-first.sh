@@ -33,5 +33,15 @@ head -n 3 build/index.html
 echo "🐍 Returning to Python project root..."
 cd ..
 
+echo "🔧 Ensuring React build files are accessible to Flask..."
+if [ -d "frontend/build" ]; then
+    echo "✅ React build directory exists"
+    ls -la frontend/build/
+else
+    echo "❌ React build directory not found!"
+    exit 1
+fi
+
 echo "🎉 Python + React build process completed successfully!"
-echo "🚀 Flask app will start with: python wsgi.py" 
+echo "🚀 Flask app will start with: python app.py"
+echo "📁 React files will be served from: frontend/build/" 

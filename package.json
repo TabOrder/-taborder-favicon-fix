@@ -9,7 +9,7 @@
   "scripts": {
     "build": "./build-python-first.sh",
     "build-alt": "./build.sh",
-    "start": "python standalone_app_enhanced.py",
+    "start": "python app.py",
     "dev": "python standalone_app_enhanced.py"
   },
   "repository": {
