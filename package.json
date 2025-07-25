@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "TabOrder Full Stack Deployment Package",
   "main": "standalone_app_enhanced.py",
+  "engines": {
+    "python": "3.11.7"
+  },
   "scripts": {
     "build": "./build-fix-permissions.sh",
     "build-alt": "./build.sh",
