@@ -1,0 +1,3 @@
+[33m2593a4b70[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add render.yaml to explicitly configure Flask app deployment
+[33m032aa22fe[m Update build scripts with additional fixes
+[33ma372820b9[m Add debug endpoints and startup logging to diagnose Flask app issues

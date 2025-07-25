@@ -1,0 +1,1 @@
+web: python standalone_app_enhanced.py 

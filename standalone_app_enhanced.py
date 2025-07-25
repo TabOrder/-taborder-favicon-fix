@@ -3,6 +3,9 @@
 🦁 TabOrder - ULTIMATE USSD App (Native User Optimized)
 Features: Auto-registration, CTT, Fuzzy Search, CRUD, Loyalty Points, SMS Invoices
 Trust-based flow with minimal friction for African native users
+
+DEPLOYMENT NOTE: This app should be started with 'python standalone_app_enhanced.py'
+RENDER DEPLOYMENT TRIGGER: Force redeploy to pick up configuration changes
 """
 
 import os
