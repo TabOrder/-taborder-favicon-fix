@@ -858,7 +858,7 @@ except Exception as e:
 
 # Logging already configured above
 
-app = Flask(__name__, static_folder='frontend/build', static_url_path='')
+app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'taborder-secret-2024')
 
 logger.info("🚀 Flask app created successfully")
